@@ -39,9 +39,9 @@ def read_file(loc, is_float, is_two):
 
 # Read in all the necessary files
 def read_everything():
-    alphabet_loc = 'project_part_I/alphabet.csv'
-    letter_trans_loc = 'project_part_I/letter_transition_matrix.csv'
-    letter_prob_loc = 'project_part_I/letter_probabilities.csv'
+    alphabet_loc = './project_part_I/alphabet.csv'
+    letter_trans_loc = './project_part_I/letter_transition_matrix.csv'
+    letter_prob_loc = './project_part_I/letter_probabilities.csv'
     # text_loc = 'project_part_II/ciphertext_warandpeace.txt'
     # real_text_loc = 'project_part_II/plaintext_warandpeace.txt'
 
