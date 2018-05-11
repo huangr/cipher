@@ -13,7 +13,7 @@ alphabet_to_num = {}
 probs = []
 text = ""
 real_text = ""
-pool = ThreadPool(6)
+pool = ThreadPool(7)
 
 # transition[i][j] means x_{k-1} = j to x_{k} = i
 transition = []
@@ -42,21 +42,19 @@ def read_everything():
     alphabet_loc = 'project_part_I/alphabet.csv'
     letter_trans_loc = 'project_part_I/letter_transition_matrix.csv'
     letter_prob_loc = 'project_part_I/letter_probabilities.csv'
-    text_loc = 'project_part_II/ciphertext_warandpeace.txt'
-    real_text_loc = 'project_part_II/plaintext_warandpeace.txt'
+    # text_loc = 'project_part_II/ciphertext_warandpeace.txt'
+    # real_text_loc = 'project_part_II/plaintext_warandpeace.txt'
 
     alphabet_to_num = {}
 
     alphabet = read_file(alphabet_loc, False, False)
     probs = read_file(letter_prob_loc, True, False)
     transition = read_file(letter_trans_loc, True, True)
-    text = read_file(text_loc, False, False)[0][:-1]
-    real_text = read_file(real_text_loc, False, False)[0][:-1]
 
     for i in range(0, len(alphabet)):
         alphabet_to_num[alphabet[i]] = i
     
-    return alphabet, probs, transition, text, alphabet_to_num, real_text
+    return alphabet, probs, transition, alphabet_to_num
 
 # Preprocess transition matrix so there are no zero probabilities for updating
 def preprocess(m, borderline):
@@ -202,21 +200,32 @@ def score(func, real_text, ciphertext):
             correct += 1
     return float(correct) / float(len(real_text))
 
-alphabet, probs, transition, text, alphabet_to_num, real_text = read_everything()
-transition = preprocess(transition, borderline)
-
-total_ct = 0
-
-for i in range(epochs):
+def decode(ciphertext, output_file_name):
+    global epochs, bag_num, iterations, borderline, pool
+    alphabet, probs, transition, alphabet_to_num = read_everything()
+    transition = preprocess(transition, borderline)
+    text = ciphertext
+    real_text = ""
     func = bag(alphabet, probs, transition, text, alphabet_to_num, iterations, bag_num)
-    lg_like = log_likelihood(func, inverse_func(func), text, probs, transition, alphabet_to_num)
-    sc = score(func, real_text, text)
-    print 'Epoch', i+1, 'of', epochs
-    print '\tLog-likelihood:', lg_like
-    print '\tPercentage correct:', sc
-    if sc == 1:
-        total_ct += 1
-    # plt.plot(x, y)
-    # plt.show()
+    inv_func = inverse_func(func)
+    for char in text:
+        real_text += inv_func[char]
+    write_file = open(output_file_name, "w")
+    write_file.write(real_text)
+    write_file.close()
 
-print 'Total accuracy:', float(total_ct) / float(epochs)
+    return
+
+# for i in range(epochs):
+#     func = bag(alphabet, probs, transition, text, alphabet_to_num, iterations, bag_num)
+#     lg_like = log_likelihood(func, inverse_func(func), text, probs, transition, alphabet_to_num)
+#     sc = score(func, real_text, text)
+#     print 'Epoch', i+1, 'of', epochs
+#     print '\tLog-likelihood:', lg_like
+#     print '\tPercentage correct:', sc
+#     if sc == 1:
+#         total_ct += 1
+#     # plt.plot(x, y)
+#     # plt.show()
+
+# print 'Total accuracy:', float(total_ct) / float(epochs)

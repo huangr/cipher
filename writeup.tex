@@ -1,0 +1,105 @@
+\documentclass[11pt]{paper}
+\usepackage{bm,amsmath,graphicx,chngcntr,subfigure,amsfonts,multicol,fancyhdr, multicol}
+\usepackage[margin=1in]{geometry}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\pagestyle{plain}
+\counterwithin{figure}{section}
+\pagenumbering{gobble}
+
+\numberwithin{equation}{section} % Number equations within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+
+% \setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+
+%----------------------------------------------------------------------------------------
+%   TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} % Create horizontal rule command with 1 argument of height
+
+\title{ 
+\vspace{-7ex}
+6.437 Project: Cipher Breaking using Markov Chain Monte Carlo Method \\ %
+}
+
+\author{
+Rick Huang
+}
+
+\begin{document}
+\maketitle
+
+\linespread{1.5}
+
+\section{Basic Algorithm Description}
+
+This algorithm relies on a general Markov Chain Monte Carlo method to generate the correct substitution cipher for a given ciphertext with given probabilities for each letter's occurrence in any location and transition probabilities between two letters in the English language. Here, I describe the general algorithm, and I will describe the specific optimizations for performance in Section 3.
+
+\medskip
+
+We accomplish this by considering a starting cipher function, initialized as $\texttt{curfunc}$. Label our ciphertext as $\texttt{ciphertext}$, and our optimal function as the maximum likelihood function currently considered given the ciphertext as $\texttt{optfunc}$. At the current time, $\texttt{optfunc} = \texttt{curfunc}$.
+
+\medskip
+
+Now, for each iteration, we generate a proposed new function $\texttt{newfunc}$ as per Metropolis-Hastings to be a uniformly random function that satisfies the criteria of only having two assignments different from $\texttt{curfunc}$. The acceptance factor $a$ is set to be the ratio of the likelihoods of $\texttt{newfunc}$ over $\texttt{curfunc}$ based on $\texttt{ciphertext}$. Then, we choose to reassign $\texttt{curfunc}$ based on the sampled Bernoulli variable of $a$. 
+
+\medskip
+
+Within each iteration, we also consider the likelihood of $\texttt{newfunc}$ compared with $\texttt{optfunc}$, and if the likelihood of $\texttt{newfunc}$ is greater than $\texttt{optfunc}$, we set $\texttt{optfunc} = \texttt{newfunc}$. We run this basic algorithm until we get to our maximum number of iteration steps or our stopping condition triggers, at which point we output $\texttt{optfunc}$.
+
+\medskip
+
+We run this algorithm several times up to $\texttt{bagnum}$, at which point out of all the proposed $\texttt{optfunc}$, we compute the maximum likelihood of all $\texttt{optfunc}$ over a different subsequence of $\texttt{ciphertext}$ and return the best $\texttt{optfunc}$.
+
+\section{Analysis and Testing}
+
+To analyze the performance of the overall algorithm, we can consider both runtime complexity and the accuracy over some sample set.
+
+\subsection{Runtime Complexity}
+
+To evaluate our overall runtime complexity, we must consider two major points of consideration within our algorithm. First, when calculating the maximum likelihood, the overall maximum likelihood computation spans each character of the ciphertext. Hence, though we want to scale our overall maximum likelihood based on the length of the overall ciphertext, we can consider a subsequence of the ciphertext and also cap the total length of the subsequences considered.
+
+\medskip
+
+The second point of consideration comes from the stopping condition. We cap the total number of iterations so that there are at most 4000 iterations of training for the Metropolis-Hastings portion of the algorithm, and so if our subsequence is at most length 5000, we can expect around the order of $10^8$ operations, which ensures that our algorithm likely falls under the 1 hour time constraint consideration. Of course, our constraints on the subsequence and total iterations should hopefully require less operations, which will be described in the next section.
+
+\subsection{Testing Accuracy}
+
+For the accuracy, we run multiple iterations of the algorithm over the plaintexts given in both project part I and project part II, and evaluate whether or not the overall accuracy rate is $100\%$ or not. In all of the course-provided texts, all iterations of the current algorithm run converged to the correct cipher $100\%$ of the time.
+
+\medskip
+
+We also consider the accuracy of our algorithm over certain ``borderline'' cases of valid English ciphertexts. This can be early modern English in the form of Shakespeare or a text that has a repetition of the same set of sentences or words, with a lack of diversity in the overall transition probabilities. Such texts still provide a $100\%$ rate as measured previously, and we run as many automated iterations as possible over the period of a few hours for each such text. 
+
+\section{Optimizations}
+
+We now describe some of the optimizations made and clarify certain aspects of the basic algorithm described in Section 1.
+
+\subsection{Function Initialization}
+
+When initializing $\texttt{curfunc}$, we want the ability to have a convergence within a reasonable number of iterations given some known prior about the text. Hence, we generate a subsequence of $\texttt{ciphertext}$ and consider the frequency distribution of each letter here. We then match this to the given probabilities of each English letter appearing in each text, rank each English letter in terms of their frequency, and match this with the frequency ranks of the $\texttt{ciphertext}$ subsequence. We then build our initial $\texttt{curfunc}$ based on this quick prior on which characters are likely to match up.
+
+\subsection{Likelihood Computation}
+
+Because each probability is below 1, note that our maximum likelihood will have thousands of terms below 1 multiplied together. Hence, we replace each instance of likelihood with the log-likelihood, and adjust the acceptance factor $a$ accordingly, so that our algorithm more accurately represents the computed values for the likelihood.
+
+\subsection{Transition Probabilities in Likelihood Computation}
+
+Note that some given transition probabilities are zero. However, in our overall log-likelihood computation, the zero factor would nullify the computation, so we reseed transition probabilities that are zero to some minimal value such as $10^{-4}$.
+
+\subsection{Using Subsequences in Likelihood Computation}
+
+As previously stated, we care about the computation time of our likelihood given the length of the subsequence of the ciphertext considered. Hence, for each run of the algorithm, we consider a random subsequence of the given ciphertext, specifically $\frac{1}{10}$ of the overall length to run the algorithm. If the ciphertext is too long, we use a maximum sequence length of 5000, which represents, in the worst case scenario, approximately a $(\frac{999}{1000})^{5000} ~ 10^{-3}$ probability of not including a specific transition probability for a reasonable English text.
+
+\subsection{Boosting}
+
+we can also boost the accuracy of our algorithm by running the basic algorithm multiple times and taking the maximum log-likelihood $\texttt{optfunc}$. This helps because now we can consider a unique random subsequence in each iteration of our algorithm, and pick the best with the overall likelihood of a longer subsequence of the text. To ensure that our runtime is still equivalent, we can multithread our program so that each iteration of our basic algorithm also runs in a different thread, and combine our results in the end.
+
+\subsection{Stopping Condition}
+
+To ensure that our program terminates, we preprogram a reasonable number of iterations, approximately 4000. We also include a good stopping condition to ensure that our algorithm converges properly and compare our set number of iterations to the expected time it took our algorithm to converge with the stopping condition upon practice testing trials. Our stopping condition relies on the acceptance of a new $\texttt{optfunc}$ given a better maximum likelihood, and if there is no change in this overall sampling after around 450 iterations, then we are confident in outputting $\texttt{optfunc}$. We choose 450 as there are $26 \choose 2 = 325$ overall possible functions. If $\frac{324}{325}$ is the probability of picking worse functions than the current function but one function is potentially better, then we have only a $25\%$ chance of missing a better function. Coupled with boosting, our possibility of missing the correct function becomes exponentially lower.
+
+\end{document}
